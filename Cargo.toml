@@ -1,0 +1,16 @@
+[package]
+name = "uom-playground"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uom = "0.32.0"
+ncollide2d = "0.33" # For 2D collision detection.
+ncollide3d = "0.33" # For 3D collision detection.
+parry3d = "0.8.0"
+
+
+[features]
+compile-error = []
