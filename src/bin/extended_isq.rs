@@ -7,6 +7,7 @@ use uom::fmt::DisplayStyle::Abbreviation;
 
 use crate::digit::{adc, kadc};
 use crate::count::{pes, kpes};
+use crate::sensor_calibration::pes_per_adc;
 
 use uom::si::f64::{Length, Time, Ratio};
 use crate::f64::{Digit, Count};
@@ -14,11 +15,9 @@ use crate::f64::{Digit, Count};
 use uom::si::length::millimeter;
 use uom::si::time  ::nanosecond;
 
-// #[allow(non_camel_case_types)]
-// struct adc(uom::si::f64::Ratio);
-// struct pes(uom::si::f64::Ratio);
 
-
+//  Digits are meant to be discrete, but the underlying type must be the same
+// for all units...
 #[macro_use]
 mod digit {
     quantity! {
@@ -30,6 +29,7 @@ mod digit {
         }
     }
 
+    // TODO: create  macro to avoid code duplication
     use uom::si::ratio::Ratio;
 
     impl<A, U, V> From<Ratio<A, V>> for Digit<U, V> where
@@ -76,6 +76,34 @@ mod count {
     }
 }
 
+#[macro_use]
+mod sensor_calibration {
+    quantity! {
+        quantity: SensorCalibration; "sensor_calibration";
+        dimension: CustomSQ<N1, P1>;
+        units {
+            @pes_per_adc : prefix!(none); "pes/adc", "pes/adc", "pes/adcs";
+            @kpes_per_adc: prefix!(kilo); "kpes/adc", "kpes/adc", "kpes/adcs";
+        }
+    }
+
+    use uom::si::ratio::Ratio;
+
+    impl<A, U, V> From<Ratio<A, V>> for SensorCalibration<U, V> where
+    A: uom::si::Units<V> + ?Sized,
+    U: super::Units<V> + ?Sized,
+    V: uom::num_traits::Num + uom::Conversion<V>,
+    {
+        fn from(val: Ratio<A, V>) -> SensorCalibration<U, V> {
+            Self {
+                dimension: uom::lib::marker::PhantomData,
+                units: uom::lib::marker::PhantomData,
+                value: val.value
+            }
+        }
+    }
+}
+
 
 system! {
     quantities: CustomSQ {
@@ -86,6 +114,7 @@ system! {
     units: CustomSU {
         mod digit::Digit,
         mod count::Count,
+        mod sensor_calibration::SensorCalibration,
     }
 }
 
@@ -131,19 +160,24 @@ fn main() {
         let _  = some_lengh + some_pes;
 
         let _  = some_adc + some_pes;
+
+        some_adc *= some_pes;
     }
 
-    // This works
-    let _ = some_length / some_time;
+    // no physical interpretation, but still allowed
+    let _  = some_adc * some_pes;
 
-    // This doesn't work out of the box
-    #[cfg(feature = "compile-error")]
-    let calibration  = some_pes / some_adc;
+    // has physical meaning
+    let  sensor_calibration  = some_pes / some_adc;
+    let isensor_calibration  = sensor_calibration.recip();
 
 
-    println!("I have {} and {}",
-        some_adc.into_format_args(adc, Abbreviation),
-        some_pes.into_format_args(pes, Abbreviation)
+    println!("I have {} and {}. The calibration factor is {} or {}",
+         some_adc          .into_format_args(adc        , Abbreviation),
+         some_pes          .into_format_args(pes        , Abbreviation),
+         sensor_calibration.into_format_args(pes_per_adc, Abbreviation),
+         "### adc/pes"
+         // isensor_calibration.into_format_args(pes_per_adc, Abbreviation), // No units defined!
     );
 
     println!("From ratios I got {} and {}",
